@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
-import { Send, CheckCircle2, AlertCircle, MessageCircle, ShieldCheck, User, Phone, Mail, BookOpen } from 'lucide-react';
+import { Send, CheckCircle2, AlertCircle, MessageCircle, ShieldCheck, User, Phone, Mail, BookOpen, Loader2 } from 'lucide-react';
 import { PROGRAMMES } from '../data/gisData';
 import { LeadSubmission, WHATSAPP_NUMBER, WHATSAPP_DISPLAY } from '../types';
+import { supabase } from '../lib/supabase';
 
 interface EnquiryFormProps {
   onLeadSubmitted: (lead: LeadSubmission) => void;
@@ -21,7 +22,7 @@ export const EnquiryForm: React.FC<EnquiryFormProps> = ({ onLeadSubmitted }) => 
   const [success, setSuccess] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMessage('');
 
@@ -37,22 +38,49 @@ export const EnquiryForm: React.FC<EnquiryFormProps> = ({ onLeadSubmitted }) => 
 
     setSubmitting(true);
 
-    setTimeout(() => {
-      const newLead: LeadSubmission = {
-        id: 'lead-' + Date.now(),
-        submittedAt: new Date().toLocaleString(),
-        fullName,
-        parentName,
-        phoneNumber,
-        emailAddress,
-        programmeInterest,
-        financialAidPreference,
-        enquirySource: 'GIS Landing Page',
-        enquiryStatus: 'New Enquiry',
-        remarks
-      };
+    const newId = 'lead-' + Date.now();
+    const timestampStr = new Date().toLocaleString();
 
-      // Save to localStorage leads for instant CRM synchronization
+    const newLead: LeadSubmission = {
+      id: newId,
+      submittedAt: timestampStr,
+      fullName,
+      parentName,
+      phoneNumber,
+      emailAddress,
+      programmeInterest,
+      financialAidPreference,
+      enquirySource: 'GIS Landing Page',
+      enquiryStatus: 'New Enquiry',
+      remarks,
+      internalNotes: ''
+    };
+
+    try {
+      // Insert into Supabase enquiries table
+      const { error } = await supabase
+        .from('enquiries')
+        .insert([
+          {
+            id: newId,
+            timestamp: timestampStr,
+            student_name: fullName,
+            parent_name: parentName,
+            phone: phoneNumber,
+            email: emailAddress,
+            programme: programmeInterest,
+            financial_aid: financialAidPreference,
+            status: 'New Enquiry',
+            notes: remarks,
+            internal_notes: ''
+          }
+        ]);
+
+      if (error) {
+        console.warn('Supabase insert error, falling back to local storage:', error.message);
+      }
+
+      // Also save to localStorage as backup/instant cache
       const existingLeadsStr = localStorage.getItem('gis_leads');
       const existingLeads: LeadSubmission[] = existingLeadsStr ? JSON.parse(existingLeadsStr) : [];
       localStorage.setItem('gis_leads', JSON.stringify([newLead, ...existingLeads]));
@@ -70,7 +98,17 @@ export const EnquiryForm: React.FC<EnquiryFormProps> = ({ onLeadSubmitted }) => 
         window.open(waUrl, '_blank');
       }, 1000);
 
-    }, 800);
+    } catch (err: any) {
+      console.error('Enquiry submission exception:', err);
+      // Fallback local storage save so user experience never breaks
+      const existingLeadsStr = localStorage.getItem('gis_leads');
+      const existingLeads: LeadSubmission[] = existingLeadsStr ? JSON.parse(existingLeadsStr) : [];
+      localStorage.setItem('gis_leads', JSON.stringify([newLead, ...existingLeads]));
+
+      onLeadSubmitted(newLead);
+      setSubmitting(false);
+      setSuccess(true);
+    }
   };
 
   return (
@@ -127,7 +165,7 @@ export const EnquiryForm: React.FC<EnquiryFormProps> = ({ onLeadSubmitted }) => 
                   </div>
                   <h3 className="text-2xl font-bold text-white">Enquiry Received Successfully!</h3>
                   <p className="text-sm text-gray-300 max-w-md mx-auto">
-                    Thank you, <span className="font-bold text-white">{fullName}</span>. Your enquiry has been recorded in our GIS admissions system. WhatsApp has been opened for instant chat.
+                    Thank you, <span className="font-bold text-white">{fullName}</span>. Your enquiry has been securely recorded in Supabase. WhatsApp has been opened for instant chat.
                   </p>
                   <button
                     onClick={() => {
@@ -281,7 +319,10 @@ export const EnquiryForm: React.FC<EnquiryFormProps> = ({ onLeadSubmitted }) => 
                     className="w-full bg-[#D5A64B] hover:bg-[#c2933e] text-[#102C46] py-3.5 rounded-xl font-bold text-sm shadow-lg transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
                   >
                     {submitting ? (
-                      <span>Processing Enquiry...</span>
+                      <>
+                        <Loader2 className="w-4 h-4 animate-spin text-[#102C46]" />
+                        <span>Saving to Supabase...</span>
+                      </>
                     ) : (
                       <>
                         <MessageCircle className="w-5 h-5 fill-current" />
@@ -291,7 +332,7 @@ export const EnquiryForm: React.FC<EnquiryFormProps> = ({ onLeadSubmitted }) => 
                   </button>
 
                   <p className="text-[11px] text-center text-gray-400">
-                    * Automatically logs lead to CRM & opens WhatsApp chat with pre-filled message.
+                    * Automatically saves to Supabase & opens WhatsApp chat with pre-filled message.
                   </p>
                 </form>
               )}

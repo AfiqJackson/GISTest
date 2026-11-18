@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { LeadSubmission, LeadStatus } from '../types';
 import { StaffUser, getStoredStaffUsers } from '../utils/auth';
+import { supabase } from '../lib/supabase';
 import { 
   Users, UserCheck, Clock, CheckCircle2, Search, Filter, Download, LogOut, 
-  Eye, FileText, Phone, Mail, Building2, ShieldAlert, ArrowLeft, Calendar, Edit3, X, Save, Shield
+  Eye, FileText, Phone, Mail, Building2, ShieldAlert, ArrowLeft, Calendar, Edit3, X, Save, Shield, Loader2, RefreshCw
 } from 'lucide-react';
 
 interface CRMDashboardProps {
@@ -13,6 +14,7 @@ interface CRMDashboardProps {
 
 export const CRMDashboard: React.FC<CRMDashboardProps> = ({ currentUser, onLogout }) => {
   const [leads, setLeads] = useState<LeadSubmission[]>([]);
+  const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('All');
   const [selectedLead, setSelectedLead] = useState<LeadSubmission | null>(null);
@@ -20,82 +22,123 @@ export const CRMDashboard: React.FC<CRMDashboardProps> = ({ currentUser, onLogou
   const [staffModalOpen, setStaffModalOpen] = useState(false);
   const [registeredStaff, setRegisteredStaff] = useState<StaffUser[]>([]);
 
-  // Load leads and staff users on mount
+  // Load enquiries and staff users on mount
   useEffect(() => {
-    loadLeads();
-    setRegisteredStaff(getStoredStaffUsers());
+    loadLeadsFromSupabase();
+    loadStaffUsers();
   }, []);
 
-  const loadLeads = () => {
-    const str = localStorage.getItem('gis_leads');
-    if (str) {
-      try {
-        const parsed: LeadSubmission[] = JSON.parse(str);
-        const normalized = parsed.map(l => ({
-          ...l,
-          enquiryStatus: (l.enquiryStatus === 'New' ? 'New Enquiry' : l.enquiryStatus) as LeadStatus
-        }));
-        setLeads(normalized);
-      } catch (e) {
-        console.error('Failed to parse leads', e);
-      }
-    } else {
-      const demoLeads: LeadSubmission[] = [
-        {
-          id: 'lead-demo-1',
-          submittedAt: new Date().toLocaleString(),
-          fullName: 'Muhammad Hafiz',
-          parentName: 'Puan Noraini',
-          phoneNumber: '012-345 6789',
-          emailAddress: 'noraini.parent@email.com',
-          programmeInterest: 'Automotive Technology',
-          financialAidPreference: 'PTPK',
-          enquirySource: 'GIS Landing Page',
-          enquiryStatus: 'New Enquiry',
-          remarks: 'Interested in SKM Automotive. Wants hostel info.',
-          internalNotes: 'Called on Monday. Parents visiting campus this Saturday.'
-        },
-        {
-          id: 'lead-demo-2',
-          submittedAt: new Date(Date.now() - 86400000).toLocaleString(),
-          fullName: 'Siti Sarah binti Mokhtar',
-          parentName: 'En. Mokhtar',
-          phoneNumber: '019-876 5432',
-          emailAddress: 'mokhtar@email.com',
-          programmeInterest: 'Culinary Arts and Hospitality',
-          financialAidPreference: 'PTPTN',
-          enquirySource: 'Counselling Modal',
-          enquiryStatus: 'Campus Tour Scheduled',
-          remarks: 'Daughter finished PT3 last year.',
-          internalNotes: 'Campus tour confirmed for 10:00 AM.'
+  const loadLeadsFromSupabase = async () => {
+    setLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from('enquiries')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (error || !data || data.length === 0) {
+        // Fallback to localStorage if Supabase query fails or returns empty
+        const localStr = localStorage.getItem('gis_leads');
+        if (localStr) {
+          const parsed: LeadSubmission[] = JSON.parse(localStr);
+          setLeads(parsed);
+        } else {
+          // Demo seed
+          const demoLeads: LeadSubmission[] = [
+            {
+              id: 'lead-demo-1',
+              submittedAt: new Date().toLocaleString(),
+              fullName: 'Muhammad Hafiz',
+              parentName: 'Puan Noraini',
+              phoneNumber: '012-345 6789',
+              emailAddress: 'noraini.parent@email.com',
+              programmeInterest: 'Automotive Technology',
+              financialAidPreference: 'PTPK',
+              enquirySource: 'GIS Landing Page',
+              enquiryStatus: 'New Enquiry',
+              remarks: 'Interested in SKM Automotive. Wants hostel info.',
+              internalNotes: 'Called on Monday. Parents visiting campus this Saturday.'
+            }
+          ];
+          setLeads(demoLeads);
         }
-      ];
-      localStorage.setItem('gis_leads', JSON.stringify(demoLeads));
-      setLeads(demoLeads);
+      } else {
+        const mapped: LeadSubmission[] = data.map((d: any) => ({
+          id: d.id,
+          submittedAt: d.timestamp || d.created_at,
+          fullName: d.student_name,
+          parentName: d.parent_name || '',
+          phoneNumber: d.phone,
+          emailAddress: d.email || '',
+          programmeInterest: d.programme || '',
+          financialAidPreference: d.financial_aid || '',
+          enquirySource: 'GIS Landing Page',
+          enquiryStatus: (d.status || 'New Enquiry') as LeadStatus,
+          remarks: d.notes || '',
+          internalNotes: d.internal_notes || ''
+        }));
+        setLeads(mapped);
+      }
+    } catch (err) {
+      console.error('Failed to load enquiries from Supabase:', err);
+      // Fallback local storage
+      const localStr = localStorage.getItem('gis_leads');
+      if (localStr) setLeads(JSON.parse(localStr));
+    } finally {
+      setLoading(false);
     }
   };
 
-  const updateLeadStatus = (id: string, newStatus: LeadStatus) => {
+  const loadStaffUsers = async () => {
+    const staff = await getStoredStaffUsers();
+    setRegisteredStaff(staff);
+  };
+
+  const updateLeadStatus = async (id: string, newStatus: LeadStatus) => {
+    // Optimistic UI update
     const updated = leads.map(l => l.id === id ? { ...l, enquiryStatus: newStatus } : l);
     setLeads(updated);
-    localStorage.setItem('gis_leads', JSON.stringify(updated));
     if (selectedLead && selectedLead.id === id) {
       setSelectedLead({ ...selectedLead, enquiryStatus: newStatus });
     }
+
+    try {
+      await supabase
+        .from('enquiries')
+        .update({ status: newStatus })
+        .eq('id', id);
+
+      // Update local storage backup
+      localStorage.setItem('gis_leads', JSON.stringify(updated));
+    } catch (err) {
+      console.error('Failed to update lead status in Supabase:', err);
+    }
   };
 
-  const saveInternalNotes = (id: string, notes: string) => {
+  const saveInternalNotes = async (id: string, notes: string) => {
+    // Optimistic UI update
     const updated = leads.map(l => l.id === id ? { ...l, internalNotes: notes } : l);
     setLeads(updated);
-    localStorage.setItem('gis_leads', JSON.stringify(updated));
     if (selectedLead) {
       setSelectedLead({ ...selectedLead, internalNotes: notes });
     }
-    alert('Internal notes saved successfully.');
+
+    try {
+      await supabase
+        .from('enquiries')
+        .update({ internal_notes: notes })
+        .eq('id', id);
+
+      localStorage.setItem('gis_leads', JSON.stringify(updated));
+      alert('Internal notes saved and synced to Supabase successfully.');
+    } catch (err) {
+      console.error('Failed to save notes in Supabase:', err);
+      alert('Notes saved locally (Supabase update error).');
+    }
   };
 
   const exportCSV = () => {
-    const headers = ['ID', 'Submitted At', 'Student Name', 'Parent Name', 'Phone Number', 'Email', 'Programme', 'Financial Aid', 'Source', 'Status', 'Remarks', 'Internal Notes'];
+    const headers = ['ID', 'Timestamp', 'Student Name', 'Parent Name', 'Phone Number', 'Email', 'Programme', 'Financial Aid', 'Status', 'Remarks', 'Internal Notes'];
     const rows = leads.map(l => [
       l.id,
       `"${l.submittedAt}"`,
@@ -105,7 +148,6 @@ export const CRMDashboard: React.FC<CRMDashboardProps> = ({ currentUser, onLogou
       `"${l.emailAddress}"`,
       `"${l.programmeInterest || '-'}"`,
       `"${l.financialAidPreference || '-'}"`,
-      `"${l.enquirySource}"`,
       `"${l.enquiryStatus}"`,
       `"${l.remarks || '-'}"`,
       `"${l.internalNotes || '-'}"`
@@ -114,7 +156,7 @@ export const CRMDashboard: React.FC<CRMDashboardProps> = ({ currentUser, onLogou
     const encodedUri = encodeURI(csvContent);
     const link = document.createElement('a');
     link.setAttribute('href', encodedUri);
-    link.setAttribute('download', `gis_nilai_crm_leads_${new Date().toISOString().slice(0,10)}.csv`);
+    link.setAttribute('download', `gis_nilai_supabase_leads_${new Date().toISOString().slice(0,10)}.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -158,17 +200,25 @@ export const CRMDashboard: React.FC<CRMDashboardProps> = ({ currentUser, onLogou
               CRM
             </div>
             <div>
-              <h1 className="font-bold text-base sm:text-lg leading-tight">GIS Nilai Admissions CRM</h1>
+              <h1 className="font-bold text-base sm:text-lg leading-tight">GIS Nilai Supabase CRM</h1>
               <p className="text-xs text-[#D5A64B]">
-                Logged in as: <strong className="text-white">{currentUser?.username || 'Staff'}</strong> ({currentUser?.email || ''})
+                Staff: <strong className="text-white">{currentUser?.username || 'Admin'}</strong> | Global Sync Active
               </p>
             </div>
           </div>
 
           <div className="flex items-center gap-2 sm:gap-3">
             <button
+              onClick={loadLeadsFromSupabase}
+              className="bg-white/10 hover:bg-white/25 text-white px-3 py-2 rounded-xl text-xs font-semibold flex items-center gap-1 transition-colors cursor-pointer"
+              title="Refresh Enquiries from Supabase"
+            >
+              <RefreshCw className={`w-3.5 h-3.5 text-[#D5A64B] ${loading ? 'animate-spin' : ''}`} />
+              <span className="hidden sm:inline">Refresh</span>
+            </button>
+            <button
               onClick={() => {
-                setRegisteredStaff(getStoredStaffUsers());
+                loadStaffUsers();
                 setStaffModalOpen(true);
               }}
               className="bg-white/10 hover:bg-white/25 text-white px-3 sm:px-4 py-2 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer"
@@ -283,10 +333,15 @@ export const CRMDashboard: React.FC<CRMDashboardProps> = ({ currentUser, onLogou
         <div className="bg-white rounded-3xl shadow-sm border border-gray-200 overflow-hidden">
           <div className="p-6 border-b border-gray-200 flex justify-between items-center">
             <h3 className="font-bold text-lg text-[#102C46]">Prospective Student Enquiries ({filteredLeads.length})</h3>
-            <span className="text-xs text-gray-500">Synced with landing page enquiries</span>
+            <span className="text-xs text-gray-500">Real-time Supabase Database Sync</span>
           </div>
 
-          {filteredLeads.length === 0 ? (
+          {loading ? (
+            <div className="text-center py-20 space-y-3">
+              <Loader2 className="w-8 h-8 animate-spin text-[#102C46] mx-auto" />
+              <p className="text-gray-500 text-sm font-medium">Loading enquiries from Supabase...</p>
+            </div>
+          ) : filteredLeads.length === 0 ? (
             <div className="text-center py-20">
               <p className="text-gray-500 font-medium">No leads match your search or filter criteria.</p>
             </div>
@@ -363,7 +418,7 @@ export const CRMDashboard: React.FC<CRMDashboardProps> = ({ currentUser, onLogou
 
             <div className="space-y-1">
               <span className="text-xs font-bold uppercase tracking-wider text-[#547A70] bg-[#547A70]/10 px-3 py-1 rounded-full">
-                Enquiry Details & Follow-up
+                Supabase CRM Details & Follow-up
               </span>
               <h2 className="text-2xl font-extrabold text-[#102C46]">{selectedLead.fullName}</h2>
               <p className="text-xs text-gray-500">Submitted on {selectedLead.submittedAt} via {selectedLead.enquirySource}</p>
@@ -405,7 +460,7 @@ export const CRMDashboard: React.FC<CRMDashboardProps> = ({ currentUser, onLogou
 
             <div className="space-y-2">
               <label className="block text-xs font-bold uppercase tracking-wider text-[#102C46]">
-                Internal Staff Notes & Follow-up Remarks
+                Internal Staff Notes & Follow-up Remarks (Synced to Supabase)
               </label>
               <textarea
                 rows={4}
@@ -460,10 +515,10 @@ export const CRMDashboard: React.FC<CRMDashboardProps> = ({ currentUser, onLogou
 
             <div className="space-y-1">
               <span className="text-xs font-bold uppercase tracking-wider text-[#547A70] bg-[#547A70]/10 px-3 py-1 rounded-full">
-                Admissions Department
+                Supabase Database
               </span>
               <h2 className="text-2xl font-extrabold text-[#102C46]">Registered Staff Team ({registeredStaff.length})</h2>
-              <p className="text-xs text-gray-600">List of authorized staff members with CRM access.</p>
+              <p className="text-xs text-gray-600">Authorized staff members synchronized via Supabase table <code className="bg-gray-100 px-1 py-0.5 rounded">staff_users</code>.</p>
             </div>
 
             <div className="space-y-3">

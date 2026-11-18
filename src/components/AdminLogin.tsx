@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Lock, ShieldCheck, X, AlertCircle, UserPlus, LogIn, CheckCircle2 } from 'lucide-react';
+import { Lock, ShieldCheck, X, AlertCircle, UserPlus, LogIn, CheckCircle2, Loader2 } from 'lucide-react';
 import { authenticateStaff, registerStaffUser, StaffUser } from '../utils/auth';
 
 interface AdminLoginProps {
@@ -21,26 +21,34 @@ export const AdminLogin: React.FC<AdminLoginProps> = ({ isOpen, onClose, onLogin
   const [regPassword, setRegPassword] = useState('');
   const [regConfirmPassword, setRegConfirmPassword] = useState('');
 
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
 
   if (!isOpen) return null;
 
-  const handleLoginSubmit = (e: React.FormEvent) => {
+  const handleLoginSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
     setSuccessMsg('');
+    setLoading(true);
 
-    const res = authenticateStaff(loginId, loginPassword);
-    if (res.success && res.user) {
-      onLoginSuccess(res.user);
-      onClose();
-    } else {
-      setError(res.message);
+    try {
+      const res = await authenticateStaff(loginId, loginPassword);
+      setLoading(false);
+      if (res.success && res.user) {
+        onLoginSuccess(res.user);
+        onClose();
+      } else {
+        setError(res.message);
+      }
+    } catch (err: any) {
+      setLoading(false);
+      setError(err?.message || 'Login failed. Please check connection.');
     }
   };
 
-  const handleRegisterSubmit = (e: React.FormEvent) => {
+  const handleRegisterSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
     setSuccessMsg('');
@@ -55,20 +63,28 @@ export const AdminLogin: React.FC<AdminLoginProps> = ({ isOpen, onClose, onLogin
       return;
     }
 
-    const res = registerStaffUser({
-      username: regUsername,
-      email: regEmail,
-      password: regPassword,
-    });
+    setLoading(true);
 
-    if (res.success && res.user) {
-      setSuccessMsg('Account registered successfully! Logging you in...');
-      setTimeout(() => {
-        onLoginSuccess(res.user!);
-        onClose();
-      }, 1000);
-    } else {
-      setError(res.message);
+    try {
+      const res = await registerStaffUser({
+        username: regUsername,
+        email: regEmail,
+        password: regPassword,
+      });
+
+      setLoading(false);
+      if (res.success && res.user) {
+        setSuccessMsg('Account registered successfully in Supabase! Logging you in...');
+        setTimeout(() => {
+          onLoginSuccess(res.user!);
+          onClose();
+        }, 1000);
+      } else {
+        setError(res.message);
+      }
+    } catch (err: any) {
+      setLoading(false);
+      setError(err?.message || 'Registration failed.');
     }
   };
 
@@ -88,7 +104,7 @@ export const AdminLogin: React.FC<AdminLoginProps> = ({ isOpen, onClose, onLogin
             <Lock className="w-7 h-7" />
           </div>
           <h3 className="text-2xl font-extrabold text-[#102C46]">GIS Staff Portal</h3>
-          <p className="text-xs text-gray-600">Access or register for the GIS Admissions CRM Dashboard.</p>
+          <p className="text-xs text-gray-600">Supabase Global CRM Authentication.</p>
         </div>
 
         {/* Mode Tabs */}
@@ -157,10 +173,15 @@ export const AdminLogin: React.FC<AdminLoginProps> = ({ isOpen, onClose, onLogin
 
             <button
               type="submit"
-              className="w-full bg-[#102C46] hover:bg-[#1a3d5e] text-white py-3.5 rounded-xl font-bold text-sm shadow-md transition-all cursor-pointer flex items-center justify-center gap-2 mt-2"
+              disabled={loading}
+              className="w-full bg-[#102C46] hover:bg-[#1a3d5e] text-white py-3.5 rounded-xl font-bold text-sm shadow-md transition-all cursor-pointer flex items-center justify-center gap-2 mt-2 disabled:opacity-50"
             >
-              <ShieldCheck className="w-4 h-4 text-[#D5A64B]" />
-              <span>Login to CRM Dashboard</span>
+              {loading ? (
+                <Loader2 className="w-4 h-4 animate-spin text-[#D5A64B]" />
+              ) : (
+                <ShieldCheck className="w-4 h-4 text-[#D5A64B]" />
+              )}
+              <span>{loading ? 'Authenticating...' : 'Login to CRM Dashboard'}</span>
             </button>
           </form>
         ) : (
@@ -216,10 +237,15 @@ export const AdminLogin: React.FC<AdminLoginProps> = ({ isOpen, onClose, onLogin
 
             <button
               type="submit"
-              className="w-full bg-[#102C46] hover:bg-[#1a3d5e] text-white py-3 rounded-xl font-bold text-xs shadow-md transition-all cursor-pointer flex items-center justify-center gap-2 mt-2"
+              disabled={loading}
+              className="w-full bg-[#102C46] hover:bg-[#1a3d5e] text-white py-3 rounded-xl font-bold text-xs shadow-md transition-all cursor-pointer flex items-center justify-center gap-2 mt-2 disabled:opacity-50"
             >
-              <UserPlus className="w-4 h-4 text-[#D5A64B]" />
-              <span>Register & Login</span>
+              {loading ? (
+                <Loader2 className="w-4 h-4 animate-spin text-[#D5A64B]" />
+              ) : (
+                <UserPlus className="w-4 h-4 text-[#D5A64B]" />
+              )}
+              <span>{loading ? 'Registering Staff...' : 'Register & Login'}</span>
             </button>
           </form>
         )}
