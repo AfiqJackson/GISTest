@@ -16,6 +16,7 @@ import { ProgrammeModal, VirtualTourModal, CounsellingModal, LegalModal } from '
 import { AdminLogin } from './components/AdminLogin';
 import { CRMDashboard } from './components/CRMDashboard';
 import { Programme, LeadSubmission, WHATSAPP_NUMBER, WHATSAPP_DISPLAY } from './types';
+import { getCurrentStaffSession, setCurrentStaffSession, StaffUser } from './utils/auth';
 import { MessageCircle, CheckCircle2 } from 'lucide-react';
 
 export default function App() {
@@ -23,11 +24,12 @@ export default function App() {
   const [virtualTourOpen, setVirtualTourOpen] = useState(false);
   const [counsellingOpen, setCounsellingOpen] = useState(false);
   const [adminLoginOpen, setAdminLoginOpen] = useState(false);
-  const [isAdminLoggedIn, setIsAdminLoggedIn] = useState<boolean>(() => {
-    return sessionStorage.getItem('gis_admin_auth') === 'true';
+  
+  const [currentUser, setCurrentUser] = useState<StaffUser | null>(() => {
+    return getCurrentStaffSession();
   });
   const [showCrmDashboard, setShowCrmDashboard] = useState<boolean>(() => {
-    return sessionStorage.getItem('gis_admin_auth') === 'true';
+    return getCurrentStaffSession() !== null;
   });
 
   const [legalModal, setLegalModal] = useState<'privacy' | 'terms' | null>(null);
@@ -40,25 +42,26 @@ export default function App() {
     }, 5000);
   };
 
-  const handleLoginSuccess = () => {
-    setIsAdminLoggedIn(true);
+  const handleLoginSuccess = (user: StaffUser) => {
+    setCurrentStaffSession(user);
+    setCurrentUser(user);
     setShowCrmDashboard(true);
-    setToastMessage('Successfully logged into GIS Staff CRM Dashboard.');
+    setToastMessage(`Welcome back, ${user.username}! Logged into CRM Dashboard.`);
     setTimeout(() => setToastMessage(null), 4000);
   };
 
   const handleLogout = () => {
-    sessionStorage.removeItem('gis_admin_auth');
-    setIsAdminLoggedIn(false);
+    setCurrentStaffSession(null);
+    setCurrentUser(null);
     setShowCrmDashboard(false);
-    setToastMessage('Logged out of staff portal.');
+    setToastMessage('Logged out of staff portal successfully.');
     setTimeout(() => setToastMessage(null), 3000);
   };
 
   const whatsappUrl = `https://wa.me/${WHATSAPP_NUMBER}?text=` + encodeURIComponent("Hi, I am interested in GIS Nilai offerings and would like to speak with a counsellor.");
 
   // If CRM Dashboard is active, render CRM View
-  if (showCrmDashboard && isAdminLoggedIn) {
+  if (showCrmDashboard && currentUser) {
     return (
       <>
         {toastMessage && (
@@ -67,7 +70,7 @@ export default function App() {
             <span className="text-sm font-medium">{toastMessage}</span>
           </div>
         )}
-        <CRMDashboard onLogout={handleLogout} />
+        <CRMDashboard currentUser={currentUser} onLogout={handleLogout} />
         <AdminLogin
           isOpen={adminLoginOpen}
           onClose={() => setAdminLoginOpen(false)}
@@ -108,7 +111,7 @@ export default function App() {
         onOpenCounselling={() => setCounsellingOpen(true)}
         onOpenVirtualTour={() => setVirtualTourOpen(true)}
         onOpenAdminLogin={() => setAdminLoginOpen(true)}
-        isAdminLoggedIn={isAdminLoggedIn}
+        isAdminLoggedIn={currentUser !== null}
         onOpenAdminDashboard={() => setShowCrmDashboard(true)}
       />
 

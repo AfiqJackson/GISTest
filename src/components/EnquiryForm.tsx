@@ -9,9 +9,11 @@ interface EnquiryFormProps {
 
 export const EnquiryForm: React.FC<EnquiryFormProps> = ({ onLeadSubmitted }) => {
   const [fullName, setFullName] = useState('');
+  const [parentName, setParentName] = useState('');
   const [phoneNumber, setPhoneNumber] = useState('');
   const [emailAddress, setEmailAddress] = useState('');
   const [programmeInterest, setProgrammeInterest] = useState('General Enquiry');
+  const [financialAidPreference, setFinancialAidPreference] = useState('PTPTN / PTPK Guidance');
   const [remarks, setRemarks] = useState('');
   const [consent, setConsent] = useState(false);
 
@@ -24,7 +26,7 @@ export const EnquiryForm: React.FC<EnquiryFormProps> = ({ onLeadSubmitted }) => 
     setErrorMessage('');
 
     if (!fullName.trim() || !phoneNumber.trim() || !emailAddress.trim()) {
-      setErrorMessage('Please fill in all required fields (Full Name, Phone Number, and Email Address).');
+      setErrorMessage('Please fill in all required fields (Student/Visitor Name, Phone Number, and Email Address).');
       return;
     }
 
@@ -40,15 +42,17 @@ export const EnquiryForm: React.FC<EnquiryFormProps> = ({ onLeadSubmitted }) => 
         id: 'lead-' + Date.now(),
         submittedAt: new Date().toLocaleString(),
         fullName,
+        parentName,
         phoneNumber,
         emailAddress,
         programmeInterest,
+        financialAidPreference,
         enquirySource: 'GIS Landing Page',
-        enquiryStatus: 'New',
+        enquiryStatus: 'New Enquiry',
         remarks
       };
 
-      // Save to localStorage leads
+      // Save to localStorage leads for instant CRM synchronization
       const existingLeadsStr = localStorage.getItem('gis_leads');
       const existingLeads: LeadSubmission[] = existingLeadsStr ? JSON.parse(existingLeadsStr) : [];
       localStorage.setItem('gis_leads', JSON.stringify([newLead, ...existingLeads]));
@@ -58,7 +62,7 @@ export const EnquiryForm: React.FC<EnquiryFormProps> = ({ onLeadSubmitted }) => 
       setSuccess(true);
 
       // Construct WhatsApp pre-filled message
-      const waMsg = encodeURIComponent(`Hi, I am ${fullName} and interested in GIS offerings. This is my ${phoneNumber} and ${emailAddress}. Please contact me and provide further informations.`);
+      const waMsg = encodeURIComponent(`Hi, I am ${fullName} (${parentName ? 'Parent: ' + parentName : ''}) and interested in GIS offerings. This is my ${phoneNumber} and ${emailAddress}. Please contact me and provide further informations.`);
       const waUrl = `https://wa.me/${WHATSAPP_NUMBER}?text=${waMsg}`;
 
       // Open WhatsApp in new tab after short delay
@@ -129,6 +133,7 @@ export const EnquiryForm: React.FC<EnquiryFormProps> = ({ onLeadSubmitted }) => 
                     onClick={() => {
                       setSuccess(false);
                       setFullName('');
+                      setParentName('');
                       setPhoneNumber('');
                       setEmailAddress('');
                       setRemarks('');
@@ -140,7 +145,7 @@ export const EnquiryForm: React.FC<EnquiryFormProps> = ({ onLeadSubmitted }) => 
                   </button>
                 </div>
               ) : (
-                <form onSubmit={handleSubmit} className="space-y-5 relative z-10">
+                <form onSubmit={handleSubmit} className="space-y-4 relative z-10">
                   <div>
                     <h3 className="text-xl font-bold text-white">Programme & Counselling Enquiry</h3>
                     <p className="text-xs text-gray-300 mt-1">Fill in your details and our team will contact you shortly.</p>
@@ -153,22 +158,38 @@ export const EnquiryForm: React.FC<EnquiryFormProps> = ({ onLeadSubmitted }) => 
                     </div>
                   )}
 
-                  <div className="space-y-1">
-                    <label className="block text-xs font-semibold text-gray-200">Full Name *</label>
-                    <div className="relative">
-                      <User className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                      <input
-                        type="text"
-                        required
-                        placeholder="e.g. Puan Aminah binti Rahman"
-                        value={fullName}
-                        onChange={(e) => setFullName(e.target.value)}
-                        className="w-full pl-10 pr-4 py-3 rounded-xl bg-white/10 border border-white/20 text-white placeholder-gray-400 text-sm focus:outline-none focus:border-[#D5A64B]"
-                      />
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div className="space-y-1">
+                      <label className="block text-xs font-semibold text-gray-200">Student / Visitor Name *</label>
+                      <div className="relative">
+                        <User className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                        <input
+                          type="text"
+                          required
+                          placeholder="e.g. Muhammad Hafiz"
+                          value={fullName}
+                          onChange={(e) => setFullName(e.target.value)}
+                          className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-white/10 border border-white/20 text-white placeholder-gray-400 text-sm focus:outline-none focus:border-[#D5A64B]"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="space-y-1">
+                      <label className="block text-xs font-semibold text-gray-200">Parent / Guardian Name</label>
+                      <div className="relative">
+                        <User className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                        <input
+                          type="text"
+                          placeholder="e.g. Puan Noraini"
+                          value={parentName}
+                          onChange={(e) => setParentName(e.target.value)}
+                          className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-white/10 border border-white/20 text-white placeholder-gray-400 text-sm focus:outline-none focus:border-[#D5A64B]"
+                        />
+                      </div>
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div className="space-y-1">
                       <label className="block text-xs font-semibold text-gray-200">Phone Number *</label>
                       <div className="relative">
@@ -179,7 +200,7 @@ export const EnquiryForm: React.FC<EnquiryFormProps> = ({ onLeadSubmitted }) => 
                           placeholder="e.g. 011-6535 5635"
                           value={phoneNumber}
                           onChange={(e) => setPhoneNumber(e.target.value)}
-                          className="w-full pl-10 pr-4 py-3 rounded-xl bg-white/10 border border-white/20 text-white placeholder-gray-400 text-sm focus:outline-none focus:border-[#D5A64B]"
+                          className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-white/10 border border-white/20 text-white placeholder-gray-400 text-sm focus:outline-none focus:border-[#D5A64B]"
                         />
                       </div>
                     </div>
@@ -191,27 +212,43 @@ export const EnquiryForm: React.FC<EnquiryFormProps> = ({ onLeadSubmitted }) => 
                         <input
                           type="email"
                           required
-                          placeholder="e.g. parent@email.com"
+                          placeholder="parent@email.com"
                           value={emailAddress}
                           onChange={(e) => setEmailAddress(e.target.value)}
-                          className="w-full pl-10 pr-4 py-3 rounded-xl bg-white/10 border border-white/20 text-white placeholder-gray-400 text-sm focus:outline-none focus:border-[#D5A64B]"
+                          className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-white/10 border border-white/20 text-white placeholder-gray-400 text-sm focus:outline-none focus:border-[#D5A64B]"
                         />
                       </div>
                     </div>
                   </div>
 
-                  <div className="space-y-1">
-                    <label className="block text-xs font-semibold text-gray-200">Programme Interest</label>
-                    <select
-                      value={programmeInterest}
-                      onChange={(e) => setProgrammeInterest(e.target.value)}
-                      className="w-full px-4 py-3 rounded-xl bg-[#1a3d5e] border border-white/20 text-white text-sm focus:outline-none focus:border-[#D5A64B]"
-                    >
-                      <option value="General Enquiry">General Enquiry & Guidance</option>
-                      {PROGRAMMES.map((p) => (
-                        <option key={p.id} value={p.title}>{p.title}</option>
-                      ))}
-                    </select>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div className="space-y-1">
+                      <label className="block text-xs font-semibold text-gray-200">Programme Interest</label>
+                      <select
+                        value={programmeInterest}
+                        onChange={(e) => setProgrammeInterest(e.target.value)}
+                        className="w-full px-4 py-2.5 rounded-xl bg-[#1a3d5e] border border-white/20 text-white text-xs focus:outline-none focus:border-[#D5A64B]"
+                      >
+                        <option value="General Enquiry">General Enquiry & Guidance</option>
+                        {PROGRAMMES.map((p) => (
+                          <option key={p.id} value={p.title}>{p.title}</option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div className="space-y-1">
+                      <label className="block text-xs font-semibold text-gray-200">Financial Aid Preference</label>
+                      <select
+                        value={financialAidPreference}
+                        onChange={(e) => setFinancialAidPreference(e.target.value)}
+                        className="w-full px-4 py-2.5 rounded-xl bg-[#1a3d5e] border border-white/20 text-white text-xs focus:outline-none focus:border-[#D5A64B]"
+                      >
+                        <option value="PTPTN / PTPK Guidance">PTPTN / PTPK Loan Guidance</option>
+                        <option value="KWSP EPF Account 2">KWSP / EPF Account 2 Withdrawal</option>
+                        <option value="Baitulmal / Zakat">Baitulmal / State Zakat Aid</option>
+                        <option value="Self-Funded / Family">Self-Funded / Family</option>
+                      </select>
+                    </div>
                   </div>
 
                   <div className="space-y-1">
@@ -221,7 +258,7 @@ export const EnquiryForm: React.FC<EnquiryFormProps> = ({ onLeadSubmitted }) => 
                       placeholder="Any specific questions regarding age requirements, hostel, or PTPTN..."
                       value={remarks}
                       onChange={(e) => setRemarks(e.target.value)}
-                      className="w-full px-4 py-3 rounded-xl bg-white/10 border border-white/20 text-white placeholder-gray-400 text-sm focus:outline-none focus:border-[#D5A64B] resize-none"
+                      className="w-full px-4 py-2.5 rounded-xl bg-white/10 border border-white/20 text-white placeholder-gray-400 text-xs focus:outline-none focus:border-[#D5A64B] resize-none"
                     ></textarea>
                   </div>
 
@@ -241,7 +278,7 @@ export const EnquiryForm: React.FC<EnquiryFormProps> = ({ onLeadSubmitted }) => 
                   <button
                     type="submit"
                     disabled={submitting}
-                    className="w-full bg-[#D5A64B] hover:bg-[#c2933e] text-[#102C46] py-4 rounded-xl font-bold text-base shadow-lg transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+                    className="w-full bg-[#D5A64B] hover:bg-[#c2933e] text-[#102C46] py-3.5 rounded-xl font-bold text-sm shadow-lg transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
                   >
                     {submitting ? (
                       <span>Processing Enquiry...</span>
@@ -254,7 +291,7 @@ export const EnquiryForm: React.FC<EnquiryFormProps> = ({ onLeadSubmitted }) => 
                   </button>
 
                   <p className="text-[11px] text-center text-gray-400">
-                    * WhatsApp click-to-chat opens with pre-filled message. You will manually press Send.
+                    * Automatically logs lead to CRM & opens WhatsApp chat with pre-filled message.
                   </p>
                 </form>
               )}

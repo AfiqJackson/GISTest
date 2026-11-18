@@ -1,25 +1,29 @@
 import React, { useState, useEffect } from 'react';
 import { LeadSubmission, LeadStatus } from '../types';
+import { StaffUser, getStoredStaffUsers } from '../utils/auth';
 import { 
   Users, UserCheck, Clock, CheckCircle2, Search, Filter, Download, LogOut, 
-  Eye, FileText, Phone, Mail, Building2, ShieldAlert, ArrowLeft, Calendar, Edit3, X, Save
+  Eye, FileText, Phone, Mail, Building2, ShieldAlert, ArrowLeft, Calendar, Edit3, X, Save, Shield
 } from 'lucide-react';
 
 interface CRMDashboardProps {
+  currentUser: StaffUser | null;
   onLogout: () => void;
 }
 
-export const CRMDashboard: React.FC<CRMDashboardProps> = ({ onLogout }) => {
+export const CRMDashboard: React.FC<CRMDashboardProps> = ({ currentUser, onLogout }) => {
   const [leads, setLeads] = useState<LeadSubmission[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('All');
-  const [programmeFilter, setProgrammeFilter] = useState<string>('All');
   const [selectedLead, setSelectedLead] = useState<LeadSubmission | null>(null);
   const [internalNotesEdit, setInternalNotesEdit] = useState('');
+  const [staffModalOpen, setStaffModalOpen] = useState(false);
+  const [registeredStaff, setRegisteredStaff] = useState<StaffUser[]>([]);
 
-  // Load leads from localStorage on mount
+  // Load leads and staff users on mount
   useEffect(() => {
     loadLeads();
+    setRegisteredStaff(getStoredStaffUsers());
   }, []);
 
   const loadLeads = () => {
@@ -27,7 +31,6 @@ export const CRMDashboard: React.FC<CRMDashboardProps> = ({ onLogout }) => {
     if (str) {
       try {
         const parsed: LeadSubmission[] = JSON.parse(str);
-        // Normalize statuses if old format
         const normalized = parsed.map(l => ({
           ...l,
           enquiryStatus: (l.enquiryStatus === 'New' ? 'New Enquiry' : l.enquiryStatus) as LeadStatus
@@ -37,12 +40,11 @@ export const CRMDashboard: React.FC<CRMDashboardProps> = ({ onLogout }) => {
         console.error('Failed to parse leads', e);
       }
     } else {
-      // Seed initial demo lead if empty
       const demoLeads: LeadSubmission[] = [
         {
           id: 'lead-demo-1',
           submittedAt: new Date().toLocaleString(),
-          fullName: 'Ahmad bin Zulkifli (Student: Hafiz)',
+          fullName: 'Muhammad Hafiz',
           parentName: 'Puan Noraini',
           phoneNumber: '012-345 6789',
           emailAddress: 'noraini.parent@email.com',
@@ -93,7 +95,7 @@ export const CRMDashboard: React.FC<CRMDashboardProps> = ({ onLogout }) => {
   };
 
   const exportCSV = () => {
-    const headers = ['ID', 'Submitted At', 'Student/Parent Name', 'Parent Name', 'Phone Number', 'Email', 'Programme', 'Financial Aid', 'Source', 'Status', 'Remarks', 'Internal Notes'];
+    const headers = ['ID', 'Submitted At', 'Student Name', 'Parent Name', 'Phone Number', 'Email', 'Programme', 'Financial Aid', 'Source', 'Status', 'Remarks', 'Internal Notes'];
     const rows = leads.map(l => [
       l.id,
       `"${l.submittedAt}"`,
@@ -129,10 +131,10 @@ export const CRMDashboard: React.FC<CRMDashboardProps> = ({ onLogout }) => {
   const filteredLeads = leads.filter(l => {
     const matchesSearch = l.fullName.toLowerCase().includes(searchQuery.toLowerCase()) ||
                           l.phoneNumber.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                          l.emailAddress.toLowerCase().includes(searchQuery.toLowerCase());
+                          l.emailAddress.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                          (l.parentName && l.parentName.toLowerCase().includes(searchQuery.toLowerCase()));
     const matchesStatus = statusFilter === 'All' || l.enquiryStatus === statusFilter;
-    const matchesProg = programmeFilter === 'All' || l.programmeInterest?.includes(programmeFilter);
-    return matchesSearch && matchesStatus && matchesProg;
+    return matchesSearch && matchesStatus;
   });
 
   const statusColors: Record<LeadStatus, string> = {
@@ -156,25 +158,37 @@ export const CRMDashboard: React.FC<CRMDashboardProps> = ({ onLogout }) => {
               CRM
             </div>
             <div>
-              <h1 className="font-bold text-lg leading-tight">GIS Nilai Admissions CRM</h1>
-              <p className="text-xs text-[#D5A64B]">Staff Portal & Lead Management</p>
+              <h1 className="font-bold text-base sm:text-lg leading-tight">GIS Nilai Admissions CRM</h1>
+              <p className="text-xs text-[#D5A64B]">
+                Logged in as: <strong className="text-white">{currentUser?.username || 'Staff'}</strong> ({currentUser?.email || ''})
+              </p>
             </div>
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 sm:gap-3">
+            <button
+              onClick={() => {
+                setRegisteredStaff(getStoredStaffUsers());
+                setStaffModalOpen(true);
+              }}
+              className="bg-white/10 hover:bg-white/25 text-white px-3 sm:px-4 py-2 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer"
+            >
+              <Users className="w-4 h-4 text-[#D5A64B]" />
+              <span className="hidden sm:inline">Staff Team</span>
+            </button>
             <button
               onClick={exportCSV}
-              className="bg-white/10 hover:bg-white/20 text-white px-4 py-2 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer"
+              className="bg-white/10 hover:bg-white/25 text-white px-3 sm:px-4 py-2 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer"
             >
               <Download className="w-4 h-4 text-[#D5A64B]" />
-              <span>Export CSV</span>
+              <span className="hidden sm:inline">Export CSV</span>
             </button>
             <button
               onClick={onLogout}
-              className="bg-red-500/20 hover:bg-red-500/30 text-red-200 px-4 py-2 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer border border-red-500/30"
+              className="bg-red-500/20 hover:bg-red-500/30 text-red-200 px-3 sm:px-4 py-2 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer border border-red-500/30"
             >
               <LogOut className="w-4 h-4" />
-              <span>Staff Logout</span>
+              <span>Logout</span>
             </button>
           </div>
         </div>
@@ -237,7 +251,7 @@ export const CRMDashboard: React.FC<CRMDashboardProps> = ({ onLogout }) => {
               <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
               <input
                 type="text"
-                placeholder="Search by name, phone or email..."
+                placeholder="Search by student, parent, phone..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:border-[#102C46] bg-gray-50/50"
@@ -269,7 +283,7 @@ export const CRMDashboard: React.FC<CRMDashboardProps> = ({ onLogout }) => {
         <div className="bg-white rounded-3xl shadow-sm border border-gray-200 overflow-hidden">
           <div className="p-6 border-b border-gray-200 flex justify-between items-center">
             <h3 className="font-bold text-lg text-[#102C46]">Prospective Student Enquiries ({filteredLeads.length})</h3>
-            <span className="text-xs text-gray-500">Auto-synced with landing page enquiries</span>
+            <span className="text-xs text-gray-500">Synced with landing page enquiries</span>
           </div>
 
           {filteredLeads.length === 0 ? (
@@ -282,7 +296,8 @@ export const CRMDashboard: React.FC<CRMDashboardProps> = ({ onLogout }) => {
                 <thead>
                   <tr className="bg-gray-50 text-gray-600 uppercase tracking-wider font-semibold border-b border-gray-200">
                     <th className="p-4">Timestamp</th>
-                    <th className="p-4">Student / Visitor Name</th>
+                    <th className="p-4">Student Name</th>
+                    <th className="p-4">Parent / Guardian</th>
                     <th className="p-4">Phone Number</th>
                     <th className="p-4">Selected Programme</th>
                     <th className="p-4">Funding Pref.</th>
@@ -294,10 +309,8 @@ export const CRMDashboard: React.FC<CRMDashboardProps> = ({ onLogout }) => {
                   {filteredLeads.map((lead) => (
                     <tr key={lead.id} className="hover:bg-gray-50/80 transition-colors">
                       <td className="p-4 text-gray-500 whitespace-nowrap">{lead.submittedAt}</td>
-                      <td className="p-4">
-                        <span className="font-bold text-[#102C46] block">{lead.fullName}</span>
-                        <span className="text-[11px] text-gray-500">{lead.emailAddress}</span>
-                      </td>
+                      <td className="p-4 font-bold text-[#102C46]">{lead.fullName}</td>
+                      <td className="p-4 text-gray-700">{lead.parentName || '-'}</td>
                       <td className="p-4 text-gray-700 whitespace-nowrap font-medium">{lead.phoneNumber}</td>
                       <td className="p-4 text-gray-800 font-medium">{lead.programmeInterest || 'General Enquiry'}</td>
                       <td className="p-4 text-gray-600">{lead.financialAidPreference || '-'}</td>
@@ -357,6 +370,14 @@ export const CRMDashboard: React.FC<CRMDashboardProps> = ({ onLogout }) => {
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 bg-gray-50 p-5 rounded-2xl border border-gray-200 text-xs">
+              <div>
+                <span className="font-semibold text-gray-500 block">Student Name:</span>
+                <span className="font-bold text-[#102C46] text-sm">{selectedLead.fullName}</span>
+              </div>
+              <div>
+                <span className="font-semibold text-gray-500 block">Parent / Guardian Name:</span>
+                <span className="font-bold text-[#102C46] text-sm">{selectedLead.parentName || '-'}</span>
+              </div>
               <div>
                 <span className="font-semibold text-gray-500 block">Phone Number:</span>
                 <span className="font-bold text-[#102C46] text-sm">{selectedLead.phoneNumber}</span>
@@ -422,6 +443,55 @@ export const CRMDashboard: React.FC<CRMDashboardProps> = ({ onLogout }) => {
               </div>
             </div>
 
+          </div>
+        </div>
+      )}
+
+      {/* Staff Team Modal */}
+      {staffModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-xs animate-fadeIn">
+          <div className="bg-white rounded-3xl max-w-lg w-full max-h-[85vh] overflow-y-auto shadow-2xl relative p-8 space-y-6">
+            <button
+              onClick={() => setStaffModalOpen(false)}
+              className="absolute top-4 right-4 w-9 h-9 rounded-full bg-gray-100 flex items-center justify-center text-[#102C46] hover:bg-gray-200 cursor-pointer"
+            >
+              <X className="w-5 h-5" />
+            </button>
+
+            <div className="space-y-1">
+              <span className="text-xs font-bold uppercase tracking-wider text-[#547A70] bg-[#547A70]/10 px-3 py-1 rounded-full">
+                Admissions Department
+              </span>
+              <h2 className="text-2xl font-extrabold text-[#102C46]">Registered Staff Team ({registeredStaff.length})</h2>
+              <p className="text-xs text-gray-600">List of authorized staff members with CRM access.</p>
+            </div>
+
+            <div className="space-y-3">
+              {registeredStaff.map((staff) => (
+                <div key={staff.id} className="bg-gray-50 p-4 rounded-2xl border border-gray-200 flex items-center justify-between">
+                  <div className="space-y-0.5">
+                    <h4 className="font-bold text-sm text-[#102C46] flex items-center gap-2">
+                      <Shield className="w-4 h-4 text-[#D5A64B]" />
+                      {staff.username}
+                      {staff.username === 'admin' && (
+                        <span className="bg-[#102C46] text-[#D5A64B] text-[10px] px-2 py-0.5 rounded font-semibold uppercase">Master</span>
+                      )}
+                    </h4>
+                    <p className="text-xs text-gray-600">{staff.email}</p>
+                    <span className="text-[10px] text-gray-400 block">Registered: {staff.createdAt}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <div className="pt-4 border-t border-gray-100 flex justify-end">
+              <button
+                onClick={() => setStaffModalOpen(false)}
+                className="bg-[#102C46] text-white px-6 py-2.5 rounded-xl text-xs font-bold cursor-pointer"
+              >
+                Close
+              </button>
+            </div>
           </div>
         </div>
       )}

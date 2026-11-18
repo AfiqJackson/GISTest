@@ -2,5 +2,7 @@
   "name": "Global Institute of Studies (GIS) Nilai | Landing Page",
   "description": "Leading post-secondary, diploma, and TVET educational pathways at Global Institute of Studies, Nilai, Negeri Sembilan. Empowering teenagers aged 15 and above with academic support, financial guidance, student welfare, and career pathways.",
   "requestFramePermissions": [],
-  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
 }
