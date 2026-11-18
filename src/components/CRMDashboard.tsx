@@ -4,7 +4,7 @@ import { StaffUser, getStoredStaffUsers } from '../utils/auth';
 import { supabase } from '../lib/supabase';
 import { 
   Users, UserCheck, Clock, CheckCircle2, Search, Filter, Download, LogOut, 
-  Eye, FileText, Phone, Mail, Building2, ShieldAlert, ArrowLeft, Calendar, Edit3, X, Save, Shield, Loader2, RefreshCw
+  Eye, FileText, Phone, Mail, Building2, ShieldAlert, ArrowLeft, Calendar, Edit3, X, Save, Shield, Loader2, RefreshCw, AlertCircle
 } from 'lucide-react';
 
 interface CRMDashboardProps {
@@ -15,6 +15,7 @@ interface CRMDashboardProps {
 export const CRMDashboard: React.FC<CRMDashboardProps> = ({ currentUser, onLogout }) => {
   const [leads, setLeads] = useState<LeadSubmission[]>([]);
   const [loading, setLoading] = useState(true);
+  const [fetchError, setFetchError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('All');
   const [selectedLead, setSelectedLead] = useState<LeadSubmission | null>(null);
@@ -30,40 +31,19 @@ export const CRMDashboard: React.FC<CRMDashboardProps> = ({ currentUser, onLogou
 
   const loadLeadsFromSupabase = async () => {
     setLoading(true);
+    setFetchError(null);
     try {
       const { data, error } = await supabase
         .from('enquiries')
         .select('*')
         .order('created_at', { ascending: false });
 
-      if (error || !data || data.length === 0) {
-        // Fallback to localStorage if Supabase query fails or returns empty
-        const localStr = localStorage.getItem('gis_leads');
-        if (localStr) {
-          const parsed: LeadSubmission[] = JSON.parse(localStr);
-          setLeads(parsed);
-        } else {
-          // Demo seed
-          const demoLeads: LeadSubmission[] = [
-            {
-              id: 'lead-demo-1',
-              submittedAt: new Date().toLocaleString(),
-              fullName: 'Muhammad Hafiz',
-              parentName: 'Puan Noraini',
-              phoneNumber: '012-345 6789',
-              emailAddress: 'noraini.parent@email.com',
-              programmeInterest: 'Automotive Technology',
-              financialAidPreference: 'PTPK',
-              enquirySource: 'GIS Landing Page',
-              enquiryStatus: 'New Enquiry',
-              remarks: 'Interested in SKM Automotive. Wants hostel info.',
-              internalNotes: 'Called on Monday. Parents visiting campus this Saturday.'
-            }
-          ];
-          setLeads(demoLeads);
-        }
+      if (error) {
+        console.error('Supabase enquiries fetch error:', error.message);
+        setFetchError(`Database Error: ${error.message}`);
+        setLeads([]);
       } else {
-        const mapped: LeadSubmission[] = data.map((d: any) => ({
+        const mapped: LeadSubmission[] = (data || []).map((d: any) => ({
           id: d.id,
           submittedAt: d.timestamp || d.created_at,
           fullName: d.student_name,
@@ -79,19 +59,23 @@ export const CRMDashboard: React.FC<CRMDashboardProps> = ({ currentUser, onLogou
         }));
         setLeads(mapped);
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error('Failed to load enquiries from Supabase:', err);
-      // Fallback local storage
-      const localStr = localStorage.getItem('gis_leads');
-      if (localStr) setLeads(JSON.parse(localStr));
+      setFetchError(`Connection Error: ${err?.message || 'Failed to reach Supabase'}`);
+      setLeads([]);
     } finally {
       setLoading(false);
     }
   };
 
   const loadStaffUsers = async () => {
-    const staff = await getStoredStaffUsers();
-    setRegisteredStaff(staff);
+    try {
+      const staff = await getStoredStaffUsers();
+      setRegisteredStaff(staff);
+    } catch (err) {
+      console.error('Failed to load staff users:', err);
+      setRegisteredStaff([]);
+    }
   };
 
   const updateLeadStatus = async (id: string, newStatus: LeadStatus) => {
@@ -103,15 +87,17 @@ export const CRMDashboard: React.FC<CRMDashboardProps> = ({ currentUser, onLogou
     }
 
     try {
-      await supabase
+      const { error } = await supabase
         .from('enquiries')
         .update({ status: newStatus })
         .eq('id', id);
 
-      // Update local storage backup
-      localStorage.setItem('gis_leads', JSON.stringify(updated));
-    } catch (err) {
-      console.error('Failed to update lead status in Supabase:', err);
+      if (error) {
+        console.error('Failed to update lead status in Supabase:', error.message);
+        alert(`Failed to update status in Supabase: ${error.message}`);
+      }
+    } catch (err: any) {
+      console.error('Supabase lead status update exception:', err);
     }
   };
 
@@ -124,16 +110,20 @@ export const CRMDashboard: React.FC<CRMDashboardProps> = ({ currentUser, onLogou
     }
 
     try {
-      await supabase
+      const { error } = await supabase
         .from('enquiries')
         .update({ internal_notes: notes })
         .eq('id', id);
 
-      localStorage.setItem('gis_leads', JSON.stringify(updated));
-      alert('Internal notes saved and synced to Supabase successfully.');
-    } catch (err) {
-      console.error('Failed to save notes in Supabase:', err);
-      alert('Notes saved locally (Supabase update error).');
+      if (error) {
+        console.error('Failed to save notes in Supabase:', error.message);
+        alert(`Failed to save notes to Supabase: ${error.message}`);
+      } else {
+        alert('Internal notes saved and synced to Supabase successfully.');
+      }
+    } catch (err: any) {
+      console.error('Supabase notes update exception:', err);
+      alert(`Supabase error: ${err?.message || 'Failed to save notes'}`);
     }
   };
 
@@ -202,7 +192,7 @@ export const CRMDashboard: React.FC<CRMDashboardProps> = ({ currentUser, onLogou
             <div>
               <h1 className="font-bold text-base sm:text-lg leading-tight">GIS Nilai Supabase CRM</h1>
               <p className="text-xs text-[#D5A64B]">
-                Staff: <strong className="text-white">{currentUser?.username || 'Admin'}</strong> | Global Sync Active
+                Staff: <strong className="text-white">{currentUser?.username || 'Admin'}</strong> | Strict Supabase Sync
               </p>
             </div>
           </div>
@@ -247,6 +237,17 @@ export const CRMDashboard: React.FC<CRMDashboardProps> = ({ currentUser, onLogou
       {/* Main Container */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
         
+        {/* Fetch Error Banner if any */}
+        {fetchError && (
+          <div className="bg-red-50 border border-red-200 text-red-700 p-4 rounded-2xl text-xs flex items-center gap-3 shadow-xs">
+            <AlertCircle className="w-5 h-5 text-red-500 shrink-0" />
+            <div>
+              <strong className="block font-bold">Supabase Database Error:</strong>
+              <span>{fetchError}. Please verify your Supabase URL, Anon Key, and that the `enquiries` table exists with proper RLS policies.</span>
+            </div>
+          </div>
+        )}
+
         {/* Top Summary Cards */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
           
@@ -333,7 +334,7 @@ export const CRMDashboard: React.FC<CRMDashboardProps> = ({ currentUser, onLogou
         <div className="bg-white rounded-3xl shadow-sm border border-gray-200 overflow-hidden">
           <div className="p-6 border-b border-gray-200 flex justify-between items-center">
             <h3 className="font-bold text-lg text-[#102C46]">Prospective Student Enquiries ({filteredLeads.length})</h3>
-            <span className="text-xs text-gray-500">Real-time Supabase Database Sync</span>
+            <span className="text-xs text-gray-500">Strict Supabase Database Sync</span>
           </div>
 
           {loading ? (
@@ -343,7 +344,7 @@ export const CRMDashboard: React.FC<CRMDashboardProps> = ({ currentUser, onLogou
             </div>
           ) : filteredLeads.length === 0 ? (
             <div className="text-center py-20">
-              <p className="text-gray-500 font-medium">No leads match your search or filter criteria.</p>
+              <p className="text-gray-500 font-medium">No leads found in Supabase matching your criteria.</p>
             </div>
           ) : (
             <div className="overflow-x-auto">

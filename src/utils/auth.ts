@@ -10,35 +10,28 @@ export interface StaffUser {
 
 const CURRENT_SESSION_KEY = 'gis_current_staff_user';
 
-export const ADMIN_SEED_USER: StaffUser = {
-  id: '00000000-0000-0000-0000-000000000001',
-  username: 'admin',
-  email: 'admin@gisnilai.edu.my',
-  password: 'GIS_Nilai_Admin2026!',
-  createdAt: new Date().toLocaleString(),
-};
-
 export async function getStoredStaffUsers(): Promise<StaffUser[]> {
   try {
     const { data, error } = await supabase
       .from('staff_users')
-      .select('*');
+      .select('*')
+      .order('created_at', { ascending: false });
 
-    if (error || !data || data.length === 0) {
-      // Fallback or seed master user
-      return [ADMIN_SEED_USER];
+    if (error) {
+      console.error('Error fetching staff users from Supabase:', error.message);
+      throw new Error(error.message);
     }
 
-    return data.map((u: any) => ({
+    return (data || []).map((u: any) => ({
       id: u.id,
       username: u.username,
       email: u.email,
       password: u.password,
       createdAt: u.created_at || new Date().toLocaleString(),
     }));
-  } catch (err) {
-    console.error('Supabase fetch staff users error, using fallback', err);
-    return [ADMIN_SEED_USER];
+  } catch (err: any) {
+    console.error('Failed to retrieve staff users from Supabase:', err);
+    throw err;
   }
 }
 
@@ -61,10 +54,10 @@ export async function registerStaffUser(user: Omit<StaffUser, 'id' | 'createdAt'
       .select();
 
     if (error) {
-      if (error.code === '23505') {
-        return { success: false, message: 'Username or Email is already registered by another staff member.' };
+      if (error.code === '23505' || error.message.includes('duplicate key') || error.message.includes('already exists')) {
+        return { success: false, message: 'Username or Email is already registered in Supabase.' };
       }
-      throw error;
+      return { success: false, message: error.message || 'Database registration error.' };
     }
 
     const newUser: StaffUser = {
@@ -75,21 +68,16 @@ export async function registerStaffUser(user: Omit<StaffUser, 'id' | 'createdAt'
       createdAt: new Date().toLocaleString(),
     };
 
-    return { success: true, message: 'Staff account registered successfully!', user: newUser };
+    return { success: true, message: 'Staff account successfully registered in Supabase!', user: newUser };
   } catch (err: any) {
-    console.error('Supabase registration error:', err);
-    return { success: false, message: err?.message || 'Registration failed. Please check Supabase configuration.' };
+    console.error('Supabase registration exception:', err);
+    return { success: false, message: err?.message || 'Registration failed due to database connection error.' };
   }
 }
 
 export async function authenticateStaff(usernameOrEmail: string, pass: string): Promise<{ success: boolean; message: string; user?: StaffUser }> {
   try {
     const query = usernameOrEmail.trim().toLowerCase();
-
-    // Check if master seed user login
-    if ((query === 'admin' || query === 'admin@gisnilai.edu.my') && pass === ADMIN_SEED_USER.password) {
-      return { success: true, message: 'Login successful', user: ADMIN_SEED_USER };
-    }
 
     const { data, error } = await supabase
       .from('staff_users')
@@ -98,11 +86,12 @@ export async function authenticateStaff(usernameOrEmail: string, pass: string): 
       .eq('password', pass)
       .limit(1);
 
-    if (error || !data || data.length === 0) {
-      // Also check local fallback
-      if ((query === 'admin' || query === 'admin@gisnilai.edu.my') && pass === ADMIN_SEED_USER.password) {
-        return { success: true, message: 'Login successful', user: ADMIN_SEED_USER };
-      }
+    if (error) {
+      console.error('Supabase authentication query error:', error.message);
+      return { success: false, message: `Authentication error: ${error.message}` };
+    }
+
+    if (!data || data.length === 0) {
       return { success: false, message: 'Invalid username/email or password.' };
     }
 
@@ -117,12 +106,8 @@ export async function authenticateStaff(usernameOrEmail: string, pass: string): 
 
     return { success: true, message: 'Login successful', user: staffUser };
   } catch (err: any) {
-    console.error('Supabase authentication error:', err);
-    // Fallback master admin check
-    if ((usernameOrEmail.trim().toLowerCase() === 'admin' || usernameOrEmail.trim().toLowerCase() === 'admin@gisnilai.edu.my') && pass === ADMIN_SEED_USER.password) {
-      return { success: true, message: 'Login successful', user: ADMIN_SEED_USER };
-    }
-    return { success: false, message: 'Authentication error. Please verify Supabase connection.' };
+    console.error('Supabase authentication exception:', err);
+    return { success: false, message: err?.message || 'Authentication failed. Please verify Supabase connection.' };
   }
 }
 

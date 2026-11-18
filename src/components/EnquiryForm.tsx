@@ -57,7 +57,7 @@ export const EnquiryForm: React.FC<EnquiryFormProps> = ({ onLeadSubmitted }) => 
     };
 
     try {
-      // Insert into Supabase enquiries table
+      // Strict Supabase insert without localStorage fallback
       const { error } = await supabase
         .from('enquiries')
         .insert([
@@ -77,13 +77,11 @@ export const EnquiryForm: React.FC<EnquiryFormProps> = ({ onLeadSubmitted }) => 
         ]);
 
       if (error) {
-        console.warn('Supabase insert error, falling back to local storage:', error.message);
+        console.error('Supabase enquiry insertion error:', error.message);
+        setErrorMessage(`Supabase Database Error: ${error.message}. Please ensure the 'enquiries' table is created and RLS policies allow inserts.`);
+        setSubmitting(false);
+        return;
       }
-
-      // Also save to localStorage as backup/instant cache
-      const existingLeadsStr = localStorage.getItem('gis_leads');
-      const existingLeads: LeadSubmission[] = existingLeadsStr ? JSON.parse(existingLeadsStr) : [];
-      localStorage.setItem('gis_leads', JSON.stringify([newLead, ...existingLeads]));
 
       onLeadSubmitted(newLead);
       setSubmitting(false);
@@ -100,14 +98,8 @@ export const EnquiryForm: React.FC<EnquiryFormProps> = ({ onLeadSubmitted }) => 
 
     } catch (err: any) {
       console.error('Enquiry submission exception:', err);
-      // Fallback local storage save so user experience never breaks
-      const existingLeadsStr = localStorage.getItem('gis_leads');
-      const existingLeads: LeadSubmission[] = existingLeadsStr ? JSON.parse(existingLeadsStr) : [];
-      localStorage.setItem('gis_leads', JSON.stringify([newLead, ...existingLeads]));
-
-      onLeadSubmitted(newLead);
+      setErrorMessage(`Failed to save enquiry to Supabase: ${err?.message || 'Network error'}.`);
       setSubmitting(false);
-      setSuccess(true);
     }
   };
 
@@ -165,7 +157,7 @@ export const EnquiryForm: React.FC<EnquiryFormProps> = ({ onLeadSubmitted }) => 
                   </div>
                   <h3 className="text-2xl font-bold text-white">Enquiry Received Successfully!</h3>
                   <p className="text-sm text-gray-300 max-w-md mx-auto">
-                    Thank you, <span className="font-bold text-white">{fullName}</span>. Your enquiry has been securely recorded in Supabase. WhatsApp has been opened for instant chat.
+                    Thank you, <span className="font-bold text-white">{fullName}</span>. Your enquiry has been securely stored in Supabase. WhatsApp has been opened for instant chat.
                   </p>
                   <button
                     onClick={() => {
