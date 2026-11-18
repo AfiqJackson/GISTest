@@ -21,16 +21,21 @@ export interface Testimonial {
   image: string;
 }
 
+export type LeadStatus = 'New Enquiry' | 'Contacted' | 'Campus Tour Scheduled' | 'Enrolled' | 'Closed' | 'New' | 'Follow-up';
+
 export interface LeadSubmission {
   id: string;
   submittedAt: string;
-  fullName: string;
+  fullName: string; // Student or Parent Name
+  parentName?: string; // Guardian / Parent Name
   phoneNumber: string;
   emailAddress: string;
   programmeInterest?: string;
+  financialAidPreference?: string; // PTPTN, PTPK, KWSP, Baitulmal, Self-Funded
   enquirySource: string;
-  enquiryStatus: 'New' | 'Contacted' | 'Follow-up' | 'Closed';
+  enquiryStatus: LeadStatus;
   remarks?: string;
+  internalNotes?: string;
 }
 
 export const WHATSAPP_NUMBER = '601165355635';

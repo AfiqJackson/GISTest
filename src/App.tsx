@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Header } from './components/Header';
 import { Hero } from './components/Hero';
 import { Commitments } from './components/Commitments';
@@ -12,7 +12,9 @@ import { Testimonials } from './components/Testimonials';
 import { FAQ } from './components/FAQ';
 import { EnquiryForm } from './components/EnquiryForm';
 import { Footer } from './components/Footer';
-import { ProgrammeModal, VirtualTourModal, CounsellingModal, AdminLeadsModal, LegalModal } from './components/Modals';
+import { ProgrammeModal, VirtualTourModal, CounsellingModal, LegalModal } from './components/Modals';
+import { AdminLogin } from './components/AdminLogin';
+import { CRMDashboard } from './components/CRMDashboard';
 import { Programme, LeadSubmission, WHATSAPP_NUMBER, WHATSAPP_DISPLAY } from './types';
 import { MessageCircle, CheckCircle2 } from 'lucide-react';
 
@@ -20,7 +22,14 @@ export default function App() {
   const [selectedProgramme, setSelectedProgramme] = useState<Programme | null>(null);
   const [virtualTourOpen, setVirtualTourOpen] = useState(false);
   const [counsellingOpen, setCounsellingOpen] = useState(false);
-  const [adminLeadsOpen, setAdminLeadsOpen] = useState(false);
+  const [adminLoginOpen, setAdminLoginOpen] = useState(false);
+  const [isAdminLoggedIn, setIsAdminLoggedIn] = useState<boolean>(() => {
+    return sessionStorage.getItem('gis_admin_auth') === 'true';
+  });
+  const [showCrmDashboard, setShowCrmDashboard] = useState<boolean>(() => {
+    return sessionStorage.getItem('gis_admin_auth') === 'true';
+  });
+
   const [legalModal, setLegalModal] = useState<'privacy' | 'terms' | null>(null);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
@@ -31,7 +40,42 @@ export default function App() {
     }, 5000);
   };
 
+  const handleLoginSuccess = () => {
+    setIsAdminLoggedIn(true);
+    setShowCrmDashboard(true);
+    setToastMessage('Successfully logged into GIS Staff CRM Dashboard.');
+    setTimeout(() => setToastMessage(null), 4000);
+  };
+
+  const handleLogout = () => {
+    sessionStorage.removeItem('gis_admin_auth');
+    setIsAdminLoggedIn(false);
+    setShowCrmDashboard(false);
+    setToastMessage('Logged out of staff portal.');
+    setTimeout(() => setToastMessage(null), 3000);
+  };
+
   const whatsappUrl = `https://wa.me/${WHATSAPP_NUMBER}?text=` + encodeURIComponent("Hi, I am interested in GIS Nilai offerings and would like to speak with a counsellor.");
+
+  // If CRM Dashboard is active, render CRM View
+  if (showCrmDashboard && isAdminLoggedIn) {
+    return (
+      <>
+        {toastMessage && (
+          <div className="fixed bottom-6 left-6 z-50 bg-[#102C46] text-white px-6 py-4 rounded-2xl shadow-2xl flex items-center gap-3 border border-[#D5A64B]/40 animate-fadeIn">
+            <CheckCircle2 className="w-5 h-5 text-[#25D366] shrink-0" />
+            <span className="text-sm font-medium">{toastMessage}</span>
+          </div>
+        )}
+        <CRMDashboard onLogout={handleLogout} />
+        <AdminLogin
+          isOpen={adminLoginOpen}
+          onClose={() => setAdminLoginOpen(false)}
+          onLoginSuccess={handleLoginSuccess}
+        />
+      </>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-white text-[#263442] font-['Inter',sans-serif] selection:bg-[#D5A64B]/30 relative">
@@ -63,7 +107,9 @@ export default function App() {
       <Header
         onOpenCounselling={() => setCounsellingOpen(true)}
         onOpenVirtualTour={() => setVirtualTourOpen(true)}
-        onOpenAdminLeads={() => setAdminLeadsOpen(true)}
+        onOpenAdminLogin={() => setAdminLoginOpen(true)}
+        isAdminLoggedIn={isAdminLoggedIn}
+        onOpenAdminDashboard={() => setShowCrmDashboard(true)}
       />
 
       {/* Main Content Sections */}
@@ -91,6 +137,7 @@ export default function App() {
       <Footer
         onOpenPrivacy={() => setLegalModal('privacy')}
         onOpenTerms={() => setLegalModal('terms')}
+        onOpenAdminLogin={() => setAdminLoginOpen(true)}
       />
 
       {/* Modals */}
@@ -111,9 +158,10 @@ export default function App() {
         onLeadSubmitted={handleLeadSubmitted}
       />
 
-      <AdminLeadsModal
-        isOpen={adminLeadsOpen}
-        onClose={() => setAdminLeadsOpen(false)}
+      <AdminLogin
+        isOpen={adminLoginOpen}
+        onClose={() => setAdminLoginOpen(false)}
+        onLoginSuccess={handleLoginSuccess}
       />
 
       {legalModal && (

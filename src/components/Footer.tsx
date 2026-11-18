@@ -1,13 +1,14 @@
 import React from 'react';
 import { GIS_ADDRESS, GIS_EMAIL, WHATSAPP_DISPLAY, WHATSAPP_NUMBER } from '../types';
-import { MapPin, Phone, Mail, MessageCircle, ShieldCheck } from 'lucide-react';
+import { MapPin, Phone, Mail, MessageCircle, Lock } from 'lucide-react';
 
 interface FooterProps {
   onOpenPrivacy: () => void;
   onOpenTerms: () => void;
+  onOpenAdminLogin: () => void;
 }
 
-export const Footer: React.FC<FooterProps> = ({ onOpenPrivacy, onOpenTerms }) => {
+export const Footer: React.FC<FooterProps> = ({ onOpenPrivacy, onOpenTerms, onOpenAdminLogin }) => {
   const whatsappUrl = `https://wa.me/${WHATSAPP_NUMBER}`;
 
   return (
@@ -87,6 +88,14 @@ export const Footer: React.FC<FooterProps> = ({ onOpenPrivacy, onOpenTerms }) =>
               <div className="flex items-center gap-3">
                 <Mail className="w-5 h-5 text-[#D5A64B] shrink-0" />
                 <span>{GIS_EMAIL}</span>
+              </div>
+              <div className="pt-2">
+                <button
+                  onClick={onOpenAdminLogin}
+                  className="text-xs text-gray-400 hover:text-[#D5A64B] transition-colors flex items-center gap-1.5 cursor-pointer underline"
+                >
+                  <Lock className="w-3.5 h-3.5" /> Staff Portal Login
+                </button>
               </div>
             </div>
           </div>

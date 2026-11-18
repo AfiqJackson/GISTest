@@ -1,14 +1,22 @@
 import React, { useState } from 'react';
-import { Menu, X, MessageCircle, Phone, Calendar, BookOpen, Shield, Award } from 'lucide-react';
+import { Menu, X, MessageCircle, Phone, Calendar, BookOpen, Shield, Award, Lock } from 'lucide-react';
 import { WHATSAPP_NUMBER, WHATSAPP_DISPLAY } from '../types';
 
 interface HeaderProps {
   onOpenCounselling: () => void;
   onOpenVirtualTour: () => void;
-  onOpenAdminLeads: () => void;
+  onOpenAdminLogin: () => void;
+  isAdminLoggedIn: boolean;
+  onOpenAdminDashboard: () => void;
 }
 
-export const Header: React.FC<HeaderProps> = ({ onOpenCounselling, onOpenVirtualTour, onOpenAdminLeads }) => {
+export const Header: React.FC<HeaderProps> = ({ 
+  onOpenCounselling, 
+  onOpenVirtualTour, 
+  onOpenAdminLogin,
+  isAdminLoggedIn,
+  onOpenAdminDashboard
+}) => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   const whatsappMessage = encodeURIComponent("Hi, I am interested in GIS offerings and would like to find out more.");
@@ -49,13 +57,22 @@ export const Header: React.FC<HeaderProps> = ({ onOpenCounselling, onOpenVirtual
               <Calendar className="w-3.5 h-3.5" /> Book Consultation
             </button>
             <span className="text-gray-400">|</span>
-            <button 
-              onClick={onOpenAdminLeads}
-              className="text-gray-300 hover:text-[#D5A64B] transition-colors text-[11px] underline cursor-pointer"
-              title="View Enquiries Log (Demo)"
-            >
-              Admin Lead Logs
-            </button>
+            {isAdminLoggedIn ? (
+              <button 
+                onClick={onOpenAdminDashboard}
+                className="text-[#D5A64B] font-semibold hover:underline transition-colors text-[11px] flex items-center gap-1 cursor-pointer"
+              >
+                <Shield className="w-3 h-3" /> CRM Dashboard
+              </button>
+            ) : (
+              <button 
+                onClick={onOpenAdminLogin}
+                className="text-gray-300 hover:text-[#D5A64B] transition-colors text-[11px] flex items-center gap-1 cursor-pointer"
+                title="Staff Portal Login"
+              >
+                <Lock className="w-3 h-3" /> Staff Login
+              </button>
+            )}
           </div>
         </div>
       </div>
@@ -165,6 +182,20 @@ export const Header: React.FC<HeaderProps> = ({ onOpenCounselling, onOpenVirtual
               className="w-full bg-[#102C46] text-white px-4 py-3 rounded-xl font-medium text-sm shadow-sm"
             >
               Speak to Our Team
+            </button>
+            <button
+              onClick={() => {
+                setMobileMenuOpen(false);
+                if (isAdminLoggedIn) {
+                  onOpenAdminDashboard();
+                } else {
+                  onOpenAdminLogin();
+                }
+              }}
+              className="w-full bg-gray-100 text-[#102C46] px-4 py-3 rounded-xl font-medium text-xs flex items-center justify-center gap-2"
+            >
+              <Lock className="w-3.5 h-3.5" />
+              <span>{isAdminLoggedIn ? 'Open CRM Dashboard' : 'Staff Portal Login'}</span>
             </button>
           </div>
         </div>
